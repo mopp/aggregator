@@ -8,7 +8,9 @@
 
 %% API
 -export([start_link/0,
-         stop/1]).
+         stop/1,
+         start_child/0,
+         stop_child/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -25,6 +27,14 @@ start_link() ->
 stop(Pid) ->
     true = exit(Pid, shutdown),
     ok.
+
+-spec start_child() -> {ok, pid()}.
+start_child() ->
+    supervisor:start_child(?MODULE, []).
+
+-spec stop_child(pid()) -> ok | {error, Reason :: term()}.
+stop_child(Pid) ->
+    supervisor:terminate_child(?MODULE, Pid).
 
 %%====================================================================
 %% `supervisor' callbacks
