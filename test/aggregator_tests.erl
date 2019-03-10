@@ -2,6 +2,15 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(waitMessage(Term),
+        receive
+            Term ->
+                ok
+        after
+            1000 ->
+                ?assert(false)
+        end).
+
 aggregator_test_() ->
     {foreach,
      fun() ->
@@ -38,5 +47,27 @@ usage_tests() ->
       fun() ->
               {ok, Pid} = aggregator:start(),
               ?assertEqual({error, no_key}, aggregator:fetch(Pid, eunit)),
+              aggregator:stop(Pid)
+      end},
+     {"Aggregator deletes value if associated process is down",
+      fun() ->
+              {ok, Pid} = aggregator:start(),
+              Self = self(),
+              Worker = spawn(fun() ->
+                                     aggregator:append_monitor(Pid, numbers, 1),
+                                     Self ! done,
+                                     ?waitMessage(break)
+                             end),
+              monitor(process, Worker),
+              ?waitMessage(done),
+
+              ?assertEqual({ok, [1]}, aggregator:fetch(Pid, numbers)),
+
+              Worker ! break,
+              ?waitMessage({'DOWN', _, process, Worker, _}),
+
+              ?assertNot(is_process_alive(Worker)),
+              ?assertEqual({error, no_key}, aggregator:fetch(Pid, numbers)),
+
               aggregator:stop(Pid)
       end}].

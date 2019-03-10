@@ -7,6 +7,7 @@
 %% API
 -export([start/0,
          append/3,
+         append_monitor/3,
          fetch/2,
          stop/1]).
 
@@ -27,6 +28,10 @@ start() ->
 -spec append(pid(), key(), value()) -> ok.
 append(Pid, Key, Value) ->
     gen_server:cast(Pid, {append, Key, Value}).
+
+-spec append_monitor(pid(), key(), value()) -> ok.
+append_monitor(Pid, Key, Value) ->
+    gen_server:cast(Pid, {append_monitor, Key, Value, self()}).
 
 -spec fetch(pid(), key()) -> {ok, [value()]} | {error, no_key}.
 fetch(Pid, Key) ->
