@@ -12,7 +12,7 @@ aggregator_test_() ->
              [application:stop(App) || App <- Apps]
      end,
      process_tests() ++
-     notify_tests()}.
+     usage_tests()}.
 
 process_tests() ->
     [{"Start and stop aggregator",
@@ -23,7 +23,7 @@ process_tests() ->
               ?assertNot(is_process_alive(Pid))
       end}].
 
-notify_tests() ->
+usage_tests() ->
     [{"Aggregate numbers",
       fun() ->
               {ok, Pid} = aggregator:start(),
