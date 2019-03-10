@@ -31,5 +31,12 @@ notify_tests() ->
               aggregator:append(Pid, numbers, 2),
               aggregator:append(Pid, numbers, 3),
 
-              ?assertEqual({ok, [3, 2, 1]}, aggregator:fetch(Pid, numbers))
+              ?assertEqual({ok, [3, 2, 1]}, aggregator:fetch(Pid, numbers)),
+              aggregator:stop(Pid)
+      end},
+     {"Aggregator returnes {error, no_key} if it not have the given key",
+      fun() ->
+              {ok, Pid} = aggregator:start(),
+              ?assertEqual({error, no_key}, aggregator:fetch(Pid, eunit)),
+              aggregator:stop(Pid)
       end}].
