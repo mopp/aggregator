@@ -20,8 +20,8 @@ aggregator_test_() ->
      fun(Apps) ->
              [application:stop(App) || App <- Apps]
      end,
-     process_tests() ++
-     usage_tests()}.
+     [process_tests(),
+      usage_tests()]}.
 
 process_tests() ->
     [{"Start and stop aggregator",
@@ -33,41 +33,93 @@ process_tests() ->
       end}].
 
 usage_tests() ->
-    [{"Aggregate numbers",
+    [
+     {"Aggregator stores values",
       fun() ->
               {ok, Pid} = aggregator:start(),
-              aggregator:append(Pid, numbers, 1),
-              aggregator:append(Pid, numbers, 2),
-              aggregator:append(Pid, numbers, 3),
+              aggregator:put(Pid, object_id, 100),
+              aggregator:put(Pid, some_atoms, [abc, def]),
 
-              ?assertEqual({ok, [3, 2, 1]}, aggregator:fetch(Pid, numbers)),
+              ?assertEqual({ok, 100}, aggregator:fetch(Pid, object_id)),
+              ?assertEqual({ok, [abc, def]}, aggregator:fetch(Pid, some_atoms)),
+
               aggregator:stop(Pid)
       end},
-     {"Aggregator returnes {error, no_key} if it not have the given key",
+     {"aggregator:fetch/2 returnes {error, no_key} if the given key is not found",
       fun() ->
               {ok, Pid} = aggregator:start(),
-              ?assertEqual({error, no_key}, aggregator:fetch(Pid, eunit)),
+
+              ?assertEqual({error, no_key}, aggregator:fetch(Pid, missing_key)),
+
+              aggregator:stop(Pid)
+      end},
+     {"Aggregator count how many of each value exists, simplest case",
+      fun() ->
+              {ok, Pid} = aggregator:start(),
+              aggregator:put(Pid, object_id, 100),
+
+              ?assertEqual({ok, #{100 => 1}}, aggregator:count(Pid, object_id)),
+
+              aggregator:stop(Pid)
+      end},
+     {"Aggregator count how many of each value exists, multiple process",
+      fun() ->
+              {ok, Pid} = aggregator:start(),
+              ok = meck:new(aggregator_srv, [passthrough]),
+
+              _ = put_via_worker(Pid, object_id, 100),
+              _ = put_via_worker(Pid, object_id, 100),
+              _ = put_via_worker(Pid, object_id, 200),
+
+              ok = meck:wait(3, aggregator_srv, handle_cast, '_', 500),
+
+              ?assertEqual({ok, #{100 => 2,
+                                  200 => 1}}, aggregator:count(Pid, object_id)),
+
+              _ = meck:unload(aggregator_srv),
+
+              aggregator:stop(Pid)
+      end},
+     {"aggregator:count/2 returnes {error, no_key} if the given key is not found",
+      fun() ->
+              {ok, Pid} = aggregator:start(),
+
+              ?assertEqual({error, no_key}, aggregator:count(Pid, missing_key)),
+
               aggregator:stop(Pid)
       end},
      {"Aggregator deletes value if associated process is down",
       fun() ->
               {ok, Pid} = aggregator:start(),
-              Self = self(),
-              Worker = spawn(fun() ->
-                                     aggregator:append_monitor(Pid, numbers, 1),
-                                     Self ! done,
-                                     ?waitMessage(break)
-                             end),
-              monitor(process, Worker),
-              ?waitMessage(done),
+              ok = meck:new(aggregator_srv, [passthrough]),
 
-              ?assertEqual({ok, [1]}, aggregator:fetch(Pid, numbers)),
+              Worker1 = put_via_worker(Pid, object_id, 100),
+              _ = put_via_worker(Pid, object_id, 100),
+              unlink(Worker1),
 
-              Worker ! break,
-              ?waitMessage({'DOWN', _, process, Worker, _}),
+              ok = meck:wait(1, aggregator_srv, handle_cast, '_', 500),
 
-              ?assertNot(is_process_alive(Worker)),
-              ?assertEqual({error, no_key}, aggregator:fetch(Pid, numbers)),
+              ?assertEqual({ok, #{100 => 2}}, aggregator:count(Pid, object_id)),
+
+              exit_worker(Worker1),
+              ok = meck:wait(1, aggregator_srv, handle_info, '_', 500),
+
+              ?assertEqual({ok, #{100 => 1}}, aggregator:count(Pid, object_id)),
+
+              _ = meck:unload(aggregator_srv),
 
               aggregator:stop(Pid)
-      end}].
+      end}
+    ].
+
+%% TODO: monitorする前にinsertするプロセスが死亡したとき
+
+
+put_via_worker(Pid, Key, Value) ->
+    spawn_link(fun() ->
+                       aggregator:put(Pid, Key, Value),
+                       ?waitMessage(finish)
+               end).
+
+exit_worker(Pid) ->
+    Pid ! finish.

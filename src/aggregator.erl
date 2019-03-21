@@ -6,9 +6,9 @@
 
 %% API
 -export([start/0,
-         append/3,
-         append_monitor/3,
+         put/3,
          fetch/2,
+         count/2,
          stop/1]).
 
 -export_type([key/0,
@@ -16,6 +16,7 @@
 
 -type key() :: term().
 -type value() :: term().
+-type counts() :: #{value() => non_neg_integer()}.
 
 %%%===================================================================
 %%% API
@@ -25,17 +26,20 @@
 start() ->
     aggregator_sup:start_child().
 
--spec append(pid(), key(), value()) -> ok.
-append(Pid, Key, Value) ->
-    gen_server:cast(Pid, {append, Key, Value}).
+%% @doc put new data.
+%% The put data associated with the caller.
+%% It will be removed when the caller is exit.
+-spec put(pid(), key(), value()) -> ok.
+put(Pid, Key, Value) ->
+    gen_server:cast(Pid, {put, self(), Key, Value}).
 
--spec append_monitor(pid(), key(), value()) -> ok.
-append_monitor(Pid, Key, Value) ->
-    gen_server:cast(Pid, {append_monitor, Key, Value, self()}).
-
--spec fetch(pid(), key()) -> {ok, [value()]} | {error, no_key}.
+-spec fetch(pid(), key()) -> {ok, value()} | {error, no_key}.
 fetch(Pid, Key) ->
-    gen_server:call(Pid, {fetch, Key}).
+    gen_server:call(Pid, {fetch, self(), Key}).
+
+-spec count(pid(), key()) -> {ok, counts()} | {error, no_key}.
+count(Pid, Key) ->
+    gen_server:call(Pid, {count, Key}).
 
 -spec stop(pid()) -> ok.
 stop(Pid) ->
