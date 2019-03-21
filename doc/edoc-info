@@ -1,0 +1,3 @@
+%% encoding: UTF-8
+{application,aggregator}.
+{modules,[aggregator,aggregator_app,aggregator_srv,aggregator_sup]}.
