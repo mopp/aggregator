@@ -1,14 +1,12 @@
-aggregator
-=====
+## aggregator
+aggregator provides KVS which key associates with the caller.  
+The value is removed automatically if the caller process is down.
 
-experimental
-An OTP application which provides server process aggregates information from processes.
 
-Build
------
+### features
+- Process responsive KVS
+- Support OTP-18 and the laters
 
-    $ rebar3 compile
 
-Note
-----
-It is better to use ETS ?
+### API
+See [doc](doc/aggregator.md).
