@@ -10,3 +10,7 @@ The value is removed automatically if the caller process is down.
 
 ### API
 See [doc](doc/aggregator.md).
+
+
+### LICENSE
+Licensed under [Apache License, Version 2.0](LICENSE)
